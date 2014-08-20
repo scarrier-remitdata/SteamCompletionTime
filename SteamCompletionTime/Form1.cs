@@ -71,7 +71,7 @@ namespace SteamCompletionTime
             }
             var sortedList = games.Values.ToList().OrderByDescending(t => t.Hours).Select(t => t.Name + " - " + t.Hours);
 
-            resultsTextBox.Text = string.Join("\r\n", sortedList);
+            resultsTextBox.Text = string.Join("\r\n", sortedList.ToArray());
         }
 
         private void HandleResponse(Dictionary<string, GameInfo> games, string name, IRestResponse response)
