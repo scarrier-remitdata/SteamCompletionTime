@@ -44,10 +44,12 @@ namespace SteamCompletionTime
                     {
                         var gameName = reader.Value;
                         gameName = Regex.Replace(gameName, @" - ", " ");//replace - with space
-                        gameName = Regex.Replace(gameName, @"[^a-zA-Z0-9 ,.-]", string.Empty); //strip non-ascii
-                        gameName = Regex.Replace(gameName, "Enhanced Edition", "", RegexOptions.IgnoreCase);
-                        gameName = Regex.Replace(gameName, "Game of the Year.*", "", RegexOptions.IgnoreCase);
-                        gameName = Regex.Replace(gameName, "GOTY.*", "", RegexOptions.IgnoreCase);
+                        //get more results back if we leave the non-ascii in
+                        //gameName = Regex.Replace(gameName, @"[^a-zA-Z0-9 ,.-]", string.Empty); //strip non-ascii
+                        var excludeWord = @"(Enhanced Edition|Game of the Year.*|GOTY.*|Collector's Edition|\([^)]*\)|∞*∞|DLC|Director's Cut|
+                                            Map Pack|Unit Pack|Maximum Edition|Original Soundtrack|Public Test|Steam Edition|Multiplayer|Single Player|
+                                            Digital Deluxe|Digital Deluxe Bundle|Pre-Order|Edition Remastered|:|™|®)";
+                        gameName = Regex.Replace(gameName, excludeWord, "", RegexOptions.IgnoreCase);
                         if (!games.ContainsKey(gameName))
                             games.Add(gameName, new GameInfo{Name = gameName});
                     }
@@ -55,7 +57,7 @@ namespace SteamCompletionTime
             }
             resultsTextBox.Text = string.Format("Loading {0} games", games.Keys.Count);
             resultsTextBox.Refresh();
-            client = new RestClient("http://www.howlongtobeat.com");
+            client = new RestClient("https://howlongtobeat.com");
 
             foreach (var name in games.Keys.ToList())
             {
@@ -79,15 +81,26 @@ namespace SteamCompletionTime
             games[name].Retrieved = true;
             var doc = new HtmlAgilityPack.HtmlDocument();
             doc.LoadHtml(response.Content);
-            var node = doc.DocumentNode.SelectSingleNode("//div[contains(@class, 'gamelist_tidbit time_')]");
+            var node = doc.DocumentNode.SelectNodes("//div//*[contains(@class, 'search_list_tidbit center time_') and not(contains(text(), '--')) or contains(@class, 'search_list_tidbit_long center time_') and not(contains(text(), '--'))]");
             if (node == null)
                 return;
-            var hours = node.InnerText;
-            hours = Regex.Replace(hours, " Hours", "");
-            hours = Regex.Replace(hours, "&#189;", ".5");
-            var hoursFloat = 0.0f;
-            float.TryParse(hours, out hoursFloat);
-            games[name].Hours = hoursFloat;
+            var hours = node[0].InnerText;
+            if (hours.Contains("Mins"))
+            {
+                hours = Regex.Replace(hours, "Mins", "");
+                hours.Trim();
+                float.TryParse(hours, out float minsToHours);
+                minsToHours /= 60f;
+                games[name].Hours = minsToHours;
+            }
+            else
+            {
+                hours = Regex.Replace(hours, "Hours", "");
+                hours.Trim();
+                hours = Regex.Replace(hours, "&#189;", ".5");
+                float.TryParse(hours, out float hoursFloat);
+                games[name].Hours = hoursFloat;
+            }
         }
 
     }
